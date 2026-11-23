@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """Shared measurement helpers for the browser benchmarks.
 
-Every harness imports this module so that process accounting, environment
-capture, statistics and JSON provenance are identical across rows. Keeping
-these in one place is part of the fairness story: a browser cannot be measured
-with a different rule than its competitors by accident.
+Process accounting, environment capture, statistics and JSON provenance live here
+so every harness applies the same rules to each browser.
 """
 import json, os, platform, shutil, statistics, subprocess, time
 

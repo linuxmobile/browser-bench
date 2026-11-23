@@ -27,7 +27,8 @@ def load(name):
     if not os.path.exists(path):
         return None
     try:
-        return json.load(open(path))
+        with open(path) as fh:
+            return json.load(fh)
     except (OSError, ValueError):
         return None
 
@@ -207,9 +208,7 @@ def generated():
                  'CLI, not browsers. Its launch, CDP tab, process, server and summary approaches '
                  '(`browsers.py`, `cdp_tab.mjs`, `procs.py`, `servers.py`, `summary.py`) were reimplemented for '
                  'Linux and these three browsers in `bench.py`, `newtab_cdp.py`, `bench_common.py`, '
-                 '`bench_xbench.py` and `report.py`. No upstream code or runtime dependency is used; these '
-                 'numbers are comparable only with each other on this machine, not with Ardia\'s published '
-                 'results.')
+                 '`bench_xbench.py` and `report.py`. No upstream code or runtime dependency is used.')
     lines.append('')
 
     # ---- Ardia-shaped rows ------------------------------------------------
@@ -250,8 +249,7 @@ def generated():
     # ---- memory / CPU ----------------------------------------------------
     lines.append('### Memory and idle CPU (primary run)')
     lines.append('')
-    lines.append('Bold marks the lower median only where all min–max intervals are disjoint. The current '
-                 'harness includes the full process tree in PSS and excludes only GPU/extension '
+    lines.append('The current harness includes the full process tree in PSS and excludes only GPU/extension '
                  'processes from CPU. The saved run predates that: it excluded extension processes '
                  'from the tree, so PSS for browsers that spawn extensions may be slightly low. '
                  'Re-running `bench_tabs.py` produces the corrected accounting.')
@@ -340,7 +338,7 @@ def generated():
         cdp = common.summarize([x for x in ardia_cdp.get('values', []) if x is not None])
     else:
         cdp = None
-    lines.append('| CDP `Target.createTarget` → FCP | – (no CDP harness) | %s | run `newtab_cdp.py` |' %
+    lines.append('| CDP `Target.createTarget` → FCP | – (no CDP harness) | %s | – (not read by report.py) |' %
                  (cell(cdp, ' ms') if cdp else '–'))
     lines.append('')
     lines.append('The CDP-target method is deliberately kept out of the popup rows: it creates a '
@@ -355,12 +353,14 @@ def main():
     if len(sys.argv) == 3 and sys.argv[1] == '--update':
         path = sys.argv[2]
         begin, end = '<!-- BEGIN GENERATED -->', '<!-- END GENERATED -->'
-        doc = open(path).read()
+        with open(path) as fh:
+            doc = fh.read()
         if begin not in doc or end not in doc:
             sys.exit('%s lacks the generated-block markers' % path)
         head, rest = doc.split(begin, 1)
         _, tail = rest.split(end, 1)
-        open(path, 'w').write(head + begin + '\n\n' + text + '\n' + end + tail)
+        with open(path, 'w') as fh:
+            fh.write(head + begin + '\n\n' + text + '\n' + end + tail)
         print('updated %s' % path)
     else:
         print(text)
