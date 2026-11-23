@@ -6,7 +6,7 @@ Headless Linux benchmarks for Ladybird, Ardia and Helium:
 - PSS/RSS and idle CPU at 1, 10 and 20 tabs
 - new-tab timing through popups and through CDP
 
-Full method, comparability notes and limitations are in [BENCHMARK.md](BENCHMARK.md). The tables there are generated from the raw JSON files by `report.py`.
+Method, comparability, provenance and limitations are in [BENCHMARK.md](BENCHMARK.md). Its tables are generated from the raw JSON files by `report.py`.
 
 ## Requirements
 
@@ -21,7 +21,7 @@ python3 -m pip install websockets
   - `ladybird`
   - `helium-browser`
   - `/usr/bin/ardia` (the browser launcher, not the separate `ardia` CLI). Override with `ARDIA_BIN=/path/to/ardia`.
-- Ports 18082, 18085 and 18086 free.
+- Ports 18082, 18085, 18086 and 18087 free.
 
 Check what the harness will use:
 
@@ -72,6 +72,17 @@ This file is not read by the default `report.py` tables.
 
 Useful settings: `N`, `WARMUP`, `BROWSER`, `OUT`, `LABEL`, `GPU=1`.
 
+### Ardia-shaped session rows (CDP browsers)
+
+```sh
+python3 bench_xbench.py
+python3 report.py --update BENCHMARK.md
+```
+
+Measures new-tab FCP, tab switch, new window and memory at 1/10/20 tabs and back to 1 for Ardia and Helium. Ladybird has no CDP target API; Ardia's Linux headless build does not paint extra same-window tabs, so those cells stay `–`. Launch, wakeup and download/on-disk rows are not measurable here. See [BENCHMARK.md](BENCHMARK.md) for the row-level caveats.
+
+Tune with `ROUNDS`, `N_TABS`, `NEW_TAB_N`, `WARMUP`, `SWITCHES`, `NEW_WINDOWS`, `SETTLE_S`, `IDLE_S`, `SAMPLE_S`, `TIMEOUT_S`, `PAGE_PORT` and `BROWSERS`. Keep the default `N_TABS=20` to fill the 10-tab, 20-tab and back-to-1 memory rows.
+
 ### Regenerate the document tables
 
 ```sh
@@ -87,6 +98,7 @@ python3 report.py --update BENCHMARK.md
 | `bench_common.py`                              | Shared process sampling, metadata, statistics and browser resolution |
 | `bench.py`                                     | Cold launch                                                          |
 | `bench_tabs.py`                                | Memory, idle CPU, popup new tabs                                     |
+| `bench_xbench.py`                              | Ardia-shaped CDP session rows (switch, window, memory after close)   |
 | `newtab_cdp.py`                                | CDP target new tab, method-specific                                  |
 | `report.py`                                    | Generate and update the Markdown tables                              |
 | `BENCHMARK.md`                                 | Method, tables, comparability and limitations                        |
@@ -95,3 +107,4 @@ python3 report.py --update BENCHMARK.md
 | `tabs_results.json`, `ardia_tabs_results.json` | Memory replication                                                   |
 | `newtab_results.json`                          | Popup new-tab replication                                            |
 | `ardia_newtab.json`                            | Single Ardia CDP new-tab sample                                      |
+| `xbench_results.json`                          | Ardia-shaped CDP session rows                                        |

@@ -17,7 +17,8 @@ import bench_common as common
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FILES = ['results.json', 'all_tabs_results.json', 'tabs_results.json',
-         'ardia_tabs_results.json', 'newtab_results.json', 'ardia_newtab.json']
+         'ardia_tabs_results.json', 'newtab_results.json', 'ardia_newtab.json',
+         'xbench_results.json']
 LABEL = {'ladybird': 'Ladybird', 'ardia': 'Ardia (Linux)', 'helium': 'Helium'}
 
 
@@ -104,10 +105,76 @@ def provenance():
             what = 'memory, CPU, popup new-tab'
         elif name == 'newtab_results.json':
             what = 'popup new-tab replication'
+        elif name == 'xbench_results.json':
+            what = 'Ardia-shaped CDP session rows'
         else:
             what = 'CDP-target new-tab (method-specific)'
         rows.append('| `%s` | %s | %s | %s |' % (name, mt, has_meta, what))
     return '\n'.join(rows)
+
+
+def xbench_cell(values, unit=' ms'):
+    s = common.summarize(values or [])
+    if not s:
+        return '–'
+
+    def n(x):
+        text = num(x)
+        return text[:-2] if text.endswith('.0') else text
+
+    return '%s%s (%s–%s, n=%d)' % (n(s['median']), unit, n(s['min']), n(s['max']), s['n'])
+
+
+def xbench_table():
+    """Ardia-shaped rows, filled only where the harness can measure them."""
+    doc = load('xbench_results.json') or {}
+
+    def vals(browser, key, field):
+        values = doc.get(browser, {}).get(key) or []
+        if field:
+            values = [r.get(field) for r in values if isinstance(r, dict)]
+        return values
+
+    def cell(browser, key, field, unit):
+        if browser == 'ladybird' or not key:
+            return '–'
+        return xbench_cell(vals(browser, key, field), unit)
+
+    lines = ['| Row | Ladybird | Ardia (Linux) | Helium |',
+             '| --- | --- | --- | --- |']
+
+    def row(title, key=None, field=None, unit=' ms'):
+        cells = [cell(b, key, field, unit) for b in common.BROWSERS]
+        lines.append('| %s | %s |' % (title, ' | '.join(cells)))
+
+    row('Cold launch → page painted (link opened from another app)')
+    row('Cold launch → window on screen')
+    row('Cold launch → restored tab painted')
+    row('New tab → first paint', 'newtab_ms')
+    row('Tab switch → shown', 'switch_ms')
+    row('New window → first paint', 'newwindow_ms')
+    row('Memory, 1 tab (PSS on Linux)', 'memory_1', 'pss_mb', ' MB')
+    row('Memory, 10 tabs (PSS on Linux)', 'memory_10', 'pss_mb', ' MB')
+    row('Memory, 20 tabs (PSS on Linux)', 'memory_20', 'pss_mb', ' MB')
+    row('Memory, back to 1 tab after 20 (PSS on Linux)', 'memory_back_1', 'pss_mb', ' MB')
+    row('Idle CPU, 1 tab', 'memory_1', 'cpu_pct', ' %')
+    row('Idle CPU, 20 tabs', 'memory_20', 'cpu_pct', ' %')
+    row('Idle wakeups, 1 tab')
+    row('Idle wakeups, 20 tabs')
+
+    errors = ['%s: %s' % (b, r['error'])
+              for b in common.BROWSERS
+              for r in doc.get(b, {}).get('rows', []) if r.get('error')]
+    if errors:
+        lines += ['', 'Session errors:', ''] + ['- ' + e for e in errors]
+
+    lines += ['',
+              '`–` means not measured. `bench_xbench.py` covers only CDP-observable rows: Ladybird '
+              'has no CDP target API, and Ardia\'s Linux headless build does not paint additional '
+              'same-window tabs. Link launch, window-on-screen, restore, idle wakeups and '
+              'download/on-disk rows cannot be measured in this setup. Ardia\'s idle CPU reflects '
+              'the headless WebUI spin described below.']
+    return '\n'.join(lines)
 
 
 def generated():
@@ -125,6 +192,33 @@ def generated():
     lines.append('### Data provenance')
     lines.append('')
     lines.append(provenance())
+    lines.append('')
+
+    # ---- upstream relationship -------------------------------------------
+    lines.append('### Upstream source and reuse')
+    lines.append('')
+    lines.append('The row set follows Ardia\'s published '
+                 '[`vs-browsers.md`](https://github.com/ardia-browser/ardia/blob/main/docs/perf/vs-browsers.md); '
+                 'none of its numbers appear here.')
+    lines.append('')
+    lines.append('The [Ardia plugins bench harness](https://github.com/ardia-browser/plugins/tree/'
+                 '65e968a3d7a0bf152a4da280da2bbb7b923762fa/plugins/cli/bench/harness) '
+                 '(commit `65e968a3d7a0bf152a4da280da2bbb7b923762fa`, Apache-2.0) benchmarks agents and the '
+                 'CLI, not browsers. Its launch, CDP tab, process, server and summary approaches '
+                 '(`browsers.py`, `cdp_tab.mjs`, `procs.py`, `servers.py`, `summary.py`) were reimplemented for '
+                 'Linux and these three browsers in `bench.py`, `newtab_cdp.py`, `bench_common.py`, '
+                 '`bench_xbench.py` and `report.py`. No upstream code or runtime dependency is used; these '
+                 'numbers are comparable only with each other on this machine, not with Ardia\'s published '
+                 'results.')
+    lines.append('')
+
+    # ---- Ardia-shaped rows ------------------------------------------------
+    lines.append('### Ardia-shaped rows (this machine)')
+    lines.append('')
+    lines.append('Same row names as [Ardia\'s table](https://github.com/ardia-browser/ardia/blob/main/docs/perf/vs-browsers.md), '
+                 'with our three browsers. Methods are described in `bench_xbench.py`; this is not Ardia\'s harness.')
+    lines.append('')
+    lines.append(xbench_table())
     lines.append('')
 
     # ---- cold launch -----------------------------------------------------
